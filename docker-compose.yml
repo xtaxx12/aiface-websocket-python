@@ -1,0 +1,17 @@
+# PostgreSQL for production-like runs:  docker compose up -d
+# then  AIFACE_DATABASE_URL=postgresql+asyncpg://aiface:aiface@localhost:5432/aiface
+# Change the password for anything beyond local testing.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aiface
+      POSTGRES_PASSWORD: aiface
+      POSTGRES_DB: aiface
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

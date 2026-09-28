@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiFace Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --inset: #eef1f5;
+    --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+    --edge: rgba(15, 23, 42, .09); --accent: #0d9488;
+    --ok: #15803d; --ok-bg: #dcfce7; --bad: #b91c1c; --bad-bg: #fee2e2; --warn-bg: #fef3c7; --warn: #92400e;
+    --r: 10px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120; --surface: #111827; --inset: #1f2937;
+      --ink: #e5e7eb; --ink-2: #9ca3af; --ink-3: #6b7280;
+      --edge: rgba(255, 255, 255, .08); --accent: #2dd4bf;
+      --ok: #86efac; --ok-bg: rgba(34, 197, 94, .15); --bad: #fca5a5; --bad-bg: rgba(239, 68, 68, .15);
+      --warn: #fcd34d; --warn-bg: rgba(245, 158, 11, .15);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--edge); background: var(--surface); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .sub { color: var(--ink-3); font-size: 13px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 20px; }
+  section { background: var(--surface); border: 1px solid var(--edge); border-radius: var(--r); padding: 16px; min-width: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); margin: 0 0 12px; }
+  .devices { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .device { border: 1px solid var(--edge); border-radius: var(--r); padding: 12px; background: var(--inset); }
+  .device b { display: block; }
+  .device .mono { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+  .on { color: var(--ok); background: var(--ok-bg); } .off { color: var(--bad); background: var(--bad-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  input, select, button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--edge); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; background: var(--accent); color: #fff; border: 0; font-weight: 600; }
+  button.ghost { background: transparent; color: var(--ink-2); border: 1px solid var(--edge); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
+  th { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+  td.mono { font-family: var(--mono); font-size: 13px; }
+  .thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid var(--edge); cursor: zoom-in; vertical-align: middle; }
+  .muted { color: var(--ink-3); }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 12px; }
+  dialog { border: 1px solid var(--edge); border-radius: var(--r); background: var(--surface); color: var(--ink); padding: 16px; max-width: min(92vw, 520px); }
+  dialog::backdrop { background: rgba(15, 23, 42, .5); }
+  dialog img { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px; background: var(--inset); }
+  dialog p { font-size: 12px; color: var(--ink-3); margin: 10px 0 0; }
+  @media (max-width: 600px) { header { padding: 12px 16px; } main { padding: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AiFace Dashboard</h1>
+  <span class="sub" id="clock"></span>
+</header>
+<main>
+  <section>
+    <h2>Devices</h2>
+    <div class="devices" id="devices"><span class="muted">Loading…</span></div>
+  </section>
+
+  <section>
+    <h2>Punches</h2>
+    <div class="filters">
+      <select id="f-sn"><option value="">All devices</option></select>
+      <input type="date" id="f-since" aria-label="From">
+      <input type="date" id="f-until" aria-label="To">
+      <input type="search" id="f-q" placeholder="Name or enrollid">
+      <button onclick="loadPunches(1)">Search</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Time</th><th>Name</th><th>Enrollid</th><th>Device</th><th>Mode</th><th>Photo</th></tr></thead>
+        <tbody id="punches"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="muted" id="page-info"></span>
+      <button class="ghost" id="prev" onclick="loadPunches(page - 1)">Previous</button>
+      <button class="ghost" id="next" onclick="loadPunches(page + 1)">Next</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Webhook relay</h2>
+    <div id="relay" class="muted">Loading…</div>
+  </section>
+</main>
+
+<dialog id="photo" onclick="if (event.target === this) this.close()">
+  <img id="photo-img" alt="">
+  <p id="photo-cap"></p>
+  <p>Biometric data. Served only to local requests.</p>
+</dialog>
+
+<script>
+  const MODES = { 1: 'Fingerprint', 2: 'Password', 3: 'Card', 8: 'Face', 15: 'Palm' };
+  const PER_PAGE = 50;
+  let page = 1;
+
+  function token() { try { return localStorage.getItem('aiface_token') || ''; } catch { return ''; } }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  async function api(path) {
+    const headers = token() ? { Authorization: `Bearer ${token()}` } : {};
+    const res = await fetch(path, { headers });
+    if (res.status === 401) {
+      const t = prompt('This server requires an API token (AIFACE_API_TOKEN):');
+      if (t) { try { localStorage.setItem('aiface_token', t); } catch {} return api(path); }
+      throw new Error('unauthorized');
+    }
+    if (!res.ok) throw new Error(`${path}: ${res.status}`);
+    return res.json();
+  }
+
+  async function loadDevices() {
+    const devices = await api('/api/devices');
+    const box = document.getElementById('devices');
+    const sel = document.getElementById('f-sn');
+    const current = sel.value;
+    box.innerHTML = devices.length ? devices.map(d => `
+      <div class="device">
+        <b>${esc(d.name || d.sn)}</b>
+        <div class="mono">${esc(d.sn)} · ${esc(d.ip_address || '')}</div>
+        <div style="margin-top:6px">
+          <span class="badge ${d.connected ? 'on' : 'off'}">${d.connected ? 'connected' : 'offline'}</span>
+          ${d.is_active ? '' : '<span class="badge warn">disabled</span>'}
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:4px">last seen ${esc((d.last_seen || '').replace('T', ' ').slice(0, 19))}</div>
+      </div>`).join('') : '<span class="muted">No device has connected yet. Point a terminal to this server (see README).</span>';
+    sel.innerHTML = '<option value="">All devices</option>' +
+      devices.map(d => `<option value="${esc(d.sn)}">${esc(d.name || d.sn)}</option>`).join('');
+    sel.value = current;
+  }
+
+  async function loadPunches(p = 1) {
+    page = Math.max(1, p);
+    const qs = new URLSearchParams({ page, per_page: PER_PAGE });
+    for (const [k, id] of [['sn', 'f-sn'], ['since', 'f-since'], ['until', 'f-until'], ['q', 'f-q']]) {
+      const v = document.getElementById(id).value.trim();
+      if (v) qs.set(k, v);
+    }
+    const res = await api(`/api/punches?${qs}`);
+    document.getElementById('punches').innerHTML = res.data.length ? res.data.map(r => `
+      <tr>
+        <td class="mono">${esc(r.time.replace('T', ' '))}</td>
+        <td>${esc(r.name) || '<span class="muted">—</span>'}</td>
+        <td class="mono">${esc(r.enrollid)}</td>
+        <td class="mono">${esc(r.device_sn)}</td>
+        <td>${esc(MODES[r.mode] || (r.mode ?? '—'))}</td>
+        <td>${r.photo_url ? `<img class="thumb" loading="lazy" src="${esc(r.photo_url)}" alt="Photo of ${esc(r.name || r.enrollid)}" data-cap="${esc(`${r.name || r.enrollid} · ${r.time.replace('T', ' ')}`)}" onclick="openPhoto(this.src, this.dataset.cap)">` : '<span class="muted">—</span>'}</td>
+      </tr>`).join('') : '<tr><td colspan="6" class="muted">No punches</td></tr>';
+    const pages = Math.max(1, Math.ceil(res.total / PER_PAGE));
+    document.getElementById('page-info').textContent = `${res.total} punches · page ${page} of ${pages}`;
+    document.getElementById('prev').disabled = page <= 1;
+    document.getElementById('next').disabled = page >= pages;
+  }
+
+  async function loadRelay() {
+    const r = await api('/api/relay/status');
+    const box = document.getElementById('relay');
+    if (!r.enabled) { box.innerHTML = 'Disabled. Set <code>AIFACE_RELAY_URL</code> to forward punches to a webhook.'; return; }
+    box.classList.remove('muted');
+    box.innerHTML = `<div class="muted" style="margin-bottom:8px">→ ${esc(r.destination)}${r.since ? ` · since ${esc(r.since)}` : ''}</div>` +
+      '<div class="table-wrap"><table><thead><tr><th>Device</th><th>Cursor</th><th>Pending</th></tr></thead><tbody>' +
+      r.devices.map(d => `<tr><td class="mono">${esc(d.sn)}</td><td class="mono">${d.cursor}</td>
+        <td><span class="badge ${d.pending ? 'warn' : 'on'}">${d.pending}</span></td></tr>`).join('') +
+      '</tbody></table></div>';
+  }
+
+  function openPhoto(src, caption) {
+    document.getElementById('photo-img').src = src;
+    document.getElementById('photo-img').alt = caption;
+    document.getElementById('photo-cap').textContent = caption;
+    document.getElementById('photo').showModal();
+  }
+
+  function tick() { document.getElementById('clock').textContent = new Date().toLocaleString(); }
+
+  async function refresh() {
+    try { await Promise.all([loadDevices(), loadRelay()]); } catch (e) { console.error(e); }
+  }
+
+  tick(); setInterval(tick, 1000);
+  refresh().then(() => loadPunches(1)).catch(console.error);
+  setInterval(refresh, 10000);
+</script>
+</body>
+</html>
